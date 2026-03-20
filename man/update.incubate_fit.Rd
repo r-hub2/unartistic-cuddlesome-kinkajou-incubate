@@ -2,10 +2,9 @@
 % Please edit documentation in R/delay_estimation.R
 \name{update.incubate_fit}
 \alias{update.incubate_fit}
-\title{Refit an \code{incubate_fit}-object with specified optimization arguments.
-If more things need to be changed use \code{delay_model}.}
+\title{Refit an \code{incubate_fit}-object with specified optimization arguments}
 \usage{
-\method{update}{incubate_fit}(object, optim_args, verbose = 0, ...)
+\method{update}{incubate_fit}(object, optim_args = NULL, verbose = 0, ...)
 }
 \arguments{
 \item{object}{\code{incubate_fit}-object}
@@ -17,9 +16,9 @@ If more things need to be changed use \code{delay_model}.}
 \item{...}{further arguments, currently not used.}
 }
 \value{
-The updated fitted object of class \code{incubate_fit}
+The updated fitted object of class \code{incubate_fit} or \code{NULL} in case of failure.
 }
 \description{
-Refit an \code{incubate_fit}-object with specified optimization arguments.
-If more things need to be changed use \code{delay_model}.
+This function is useful when only an optimization argument is to be changed.
+If more things need to be changed go back to \code{delay_model} and start from scratch.
 }

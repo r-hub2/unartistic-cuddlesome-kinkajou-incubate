@@ -5,20 +5,29 @@
 \title{Get delay distribution function}
 \usage{
 getDist(
-  distribution = c("exponential", "weibull"),
+  distribution = c("exponential", "weibull", "normal"),
   type = c("cdf", "prob", "density", "random", "param"),
+  twoPhase = FALSE,
   twoGroup = FALSE,
-  bind = NULL
+  bind = NULL,
+  profiled = FALSE,
+  transformed = FALSE
 )
 }
 \arguments{
-\item{distribution}{character(1). delay distribution.}
+\item{distribution}{character(1). Which distribution?}
 
 \item{type}{character(1). type of function, cdf: cumulative distribution function, density or random function}
 
-\item{twoGroup}{logical(1). Do we have two groups?}
+\item{twoPhase}{logical(1). For \code{type='param'}, do we model two phases?}
 
-\item{bind}{character. Names of parameters that are bind between the two groups.}
+\item{twoGroup}{logical(1). For \code{type='param'}, do we have two groups?}
+
+\item{bind}{character. For \code{type='param'}, names of parameters that are bind between the two groups.}
+
+\item{profiled}{logical(1). For \code{type='param'}, do we request profiling?}
+
+\item{transformed}{logical(1). For \code{type='param'}, do we need parameter names transformed (as used inside the optimization function?)}
 }
 \value{
 selected distribution function or parameter names

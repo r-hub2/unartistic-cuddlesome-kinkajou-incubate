@@ -3,8 +3,9 @@
 \docType{data}
 \name{stankovic}
 \alias{stankovic}
-\title{Survival of mice with glioma under different treatments.}
+\title{Survival time of mice with glioma under different treatments}
 \format{
+A data frame with 45 rows and 5 variables:
 \describe{
 \item{Figure}{The figure in the publication where the data is shown}
 \item{Time}{Survival in days}
@@ -14,15 +15,17 @@
 }
 }
 \source{
-Dudvarski Stankovic N, Bicker F, Keller S, et al. EGFL7 enhances surface expression of integrin a5b1 to promote angiogenesis in malignant brain tumors. EMBO Mol Med. 2018;10(9):e8420. doi:10.15252/emmm.201708420 \url{https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6127886/}
+Dudvarski Stankovic N, Bicker F, Keller S, et al. EGFL7 enhances surface expression of integrin a5b1 to promote angiogenesis in malignant brain tumors. EMBO Mol Med. 2018;10(9):e8420. doi:10.15252/emmm.201708420 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6127886/
 }
 \usage{
 stankovic
 }
 \description{
-A dataset from an animal experiment described in Stankovic (2018), shown in Figure 6J and 6K.
+This data set stems from an animal experiment described in Stankovic (2018).
+In particular, the data in question is shown in Figure 6J and 6K.
 }
 \details{
-The data were read directly from the survival plots in the publication with the help of Plot Digitizer, version 2.6.9.
+The data were read directly from the survival plots in the publication with
+the help of Plot Digitizer, version 2.6.9.
 }
 \keyword{datasets}

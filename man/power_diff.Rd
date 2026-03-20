@@ -2,62 +2,134 @@
 % Please edit documentation in R/delay_test.R
 \name{power_diff}
 \alias{power_diff}
-\title{Power simulation function for a two-group comparison of the delay parameter.}
+\title{Power simulation function for a two-group comparison}
 \usage{
 power_diff(
   distribution = c("exponential", "weibull"),
-  param = "delay",
-  test = c("bootstrap", "pearson", "moran", "lr", "lr_pp"),
-  eff = stop("Provide parameters for both group that reflect the effect!"),
+  twoPhase = FALSE,
+  eff = stop("Provide parameters for both groups that reflect the effect!"),
+  param = "delay1",
+  test = c("bootstrap", "logrank", "logrank_pp", "LRT"),
+  method = c("MPSE", "MLEw", "MLEc", "MLEn"),
   n = NULL,
   r = 1,
   sig.level = 0.05,
   power = NULL,
   nPowerSim = 1600,
-  R = 201,
-  nRange = c(5, 50)
+  R = 200,
+  nRange = c(5, 250),
+  verbose = 0
 )
 }
 \arguments{
-\item{distribution}{character. Which assumed distribution is used for the power calculation.}
+\item{distribution}{character. Which assumed distribution is used for the
+power calculation. Default is \code{"exponential"}.}
 
-\item{param}{character. Parameter name(s) for which to simulate the power.}
+\item{twoPhase}{logical(1). Do we model two phases per group? Default is
+\code{FALSE}, i.e. a single delay phase per group.}
 
-\item{test}{character. Which test to use for this power estimation?}
+\item{eff}{list of length 2. The two list elements must be numeric vectors that
+contain the model parameters (as understood by the delay-distribution
+functions provided by this package) for the two groups.}
 
-\item{eff}{list. The two list elements contain the model parameters (as understood by the delay-distribution functions provided by this package) for the two groups.}
+\item{param}{character. Parameter name(s) which are to be tested for
+difference and for which to simulate the power. Default value is
+\code{'delay1'}. You can specify multiple parameters, by giving a vector or
+by concatenating them with a \code{+} in a single string.}
 
-\item{n}{integer. Number of observations per group for the power simulation or \code{NULL} when n is to be estimated for a given power.}
+\item{test}{character. Which test to use for this power estimation? Defaults
+to \code{"bootstrap"}. Non-parametric logrank test is also possible (either
+\code{"logrank"} or \code{"logrank_pp"}). See also \code{\link[=test_diff]{test_diff()}}.}
 
-\item{r}{numeric. Ratio of both groups sizes, ny / nx. Default value is 1, i.e., balanced group sizes. Must be positive.}
+\item{method}{character. Which fitting method to use in case of a parametric test.}
+
+\item{n}{integer. Number of observations per group for the power simulation
+or \code{NULL} when n is to be estimated for a given power.}
+
+\item{r}{numeric. Ratio of both groups sizes, ny / nx. Default value is 1,
+i.e. balanced group sizes. Must be positive.}
 
 \item{sig.level}{numeric. Significance level. Default is 0.05.}
 
-\item{power}{numeric. \code{NULL} when power is to be estimated for a given sample size or a desired power is specified (and \code{n} is estimated).}
+\item{power}{numeric. \code{NULL} when power is to be estimated for a given sample
+size or a desired power is specified (and \code{n} is estimated).}
 
-\item{nPowerSim}{integer. Number of simulation rounds. Default value 1600 yields a standard error of 0.01 for power if the true power is 80\%.}
+\item{nPowerSim}{integer. Number of simulation rounds. Default value 1600
+yields a standard error of 0.01 for power if the true power is 80\%.}
 
-\item{R}{integer. Number of bootstrap samples for test of difference in parameter within each power simulation. It affects the resolution of the P-value for each simulation round. A value of around \code{R=200} gives a resolution of 0.5\% which might be enough for power analysis.}
+\item{R}{integer. Number of bootstrap samples for test of difference
+within each power simulation. It affects the resolution of the
+P-value for each simulation round. A value of around \code{R=200} gives a
+resolution of 0.5\% which might be enough for power analysis.}
 
-\item{nRange}{integer. Admissible range for sample size when power is pre-specified and sample size is requested.}
+\item{nRange}{integer. Admissible range for sample size when power is
+specified and sample size is requested. The routine might not find the
+optimal sample size when this range is set too wide.}
+
+\item{verbose}{numeric. How many details are requested? Higher value means
+more details. 0=off, no details.}
 }
 \value{
 List of results of power simulation. Or \code{NULL} in case of errors.
 }
 \description{
-There are two ways of operation:
+There are two modes of operation:
 \enumerate{
-\item \code{power=NULL} Given sample size \code{n} it simulates the power.
-\item \code{n=NULL} Given a power an iterative search is started to find a suitable \code{n} within a specified range.
+\item \code{power=NULL}: simulate power based on given sample size \code{n}
+\item \code{n=NULL}: search iteratively for a suitable sample size \code{n} for a given power
 }
 }
 \details{
-In any case, the distribution, the parameters that are tested for, the type of test and the effect size (\verb{eff=}) need to be specified.
-The more power simulation rounds (parameter \verb{nPowerSim=}) the more densely the space of data according to the specified model is sampled.
+In both cases, the distribution, the parameters that are tested for, the type
+of test and the effect size (\verb{eff=}) need to be specified. Specify the effect as a list with two elements,
+each element holds the parameter vector describing the distribution of the outcome per group.
+The fitting method (\verb{method=}) and the kind of significance test (\verb{test=}) are handed down to \code{\link[=test_diff]{test_diff()}}.
+The more power simulation rounds (parameter \verb{nPowerSim=}) the more densely the space of data
+according to the specified model is sampled.
 
-Note that this second modus (when \code{n} is estimated) is computationally quite heavy.
-The iterative search for \code{n} uses some heuristics and the estimated sample size might actually give a different power-level.
-It is important to check the stated power in the output. The search algorithm comes to results closer to the power aimed at
-when the admissible range for sample size (\verb{nRange=}) is chosen sensibly.
-In case the estimated sample size and the achieved power is too high it might pay off to rerun the function with an adapted admissible range.
+Note that estimating sample size \code{n} is computationally intensive.
+The iterative search uses heuristics to find a sample size \code{n} within the
+provided range (\verb{nRange=}), and the estimated sample size might yield a
+slightly different power level. Hence, check the reported power in the
+output. The search algorithm comes to better results when the admissible
+range for sample size (\verb{nRange=}) is chosen sensibly and not too wide.
+In case the estimated sample size and the achieved power is too high it might
+pay off to rerun the function with an adapted admissible range for the sample
+size by giving a narrower range in \verb{nRange=}.
+}
+\examples{
+# simulate power for a given sample size ---------------------------
+# test for difference in delay in an exponential model,
+# the assumed effect is given in terms of model parameters for both groups
+# the power is estimated based on nPowersim = 30 simulated datasets
+# for real applications, use a higher nPowerSim (e.g. 1600) for more
+# precise power estimation and a higher R (e.g. 400) for more precise
+# P-value estimation in each simulation round
+set.seed(123) # for reproducibility
+power_diff(
+  eff = list(grA = c(delay1 = 5.2, rate1 = .1),
+             grB = c(delay1 = 7, rate1 = .12)),
+  param = "delay1",
+  test = "bootstrap", method = "MPSE",
+  n = 16, power = NULL,
+  nPowerSim = 30, R = 100)
+
+# simulate required sample size for a given power -----------------------
+# provide a range for the sample size search, e.g. nRange = c(12, 25)
+# this takes more time than the previous example, as the function
+# iteratively searches for a sample size that yields the requested power
+\dontrun{
+set.seed(123) # for reproducibility
+power_diff(
+  eff = list(grA = c(delay1 = 5.2, rate1 = .1),
+             grB = c(delay1 = 7, rate1 = .15)),
+  param = "delay1",
+  test = "bootstrap", method = "MPSE",
+  n = NULL, power = 0.8,
+  nPowerSim = 120, R = 100,
+  nRange = c(12, 25))
+}
+}
+\seealso{
+\code{\link[=test_diff]{test_diff()}}
 }

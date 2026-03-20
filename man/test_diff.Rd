@@ -2,16 +2,21 @@
 % Please edit documentation in R/delay_test.R
 \name{test_diff}
 \alias{test_diff}
-\title{Test the difference for delay model parameter(s) between two uncorrelated groups, based on maximum product of spacings estimation (MPSE).}
+\title{Test the difference for model parameter(s) between two uncorrelated groups}
 \usage{
 test_diff(
   x,
   y = stop("Provide data for group y!"),
   distribution = c("exponential", "weibull"),
-  param = "delay",
+  twoPhase = FALSE,
+  type = c("all", "bootstrap", "GOF", "moran", "pearson", "logrank", "LRT"),
+  param = "delay1",
+  method = c("MPSE", "MLEw", "MLEc", "MLEn"),
+  profiled = method != "MPSE",
+  ties = c("density", "equispaced", "error"),
+  doLogrank = TRUE,
   R = 400,
-  ties = c("density", "equidist", "random", "error"),
-  type = c("all", "bootstrap", "gof", "moran", "pearson", "lr", "lr_pp"),
+  chiSqApprox = FALSE,
   verbose = 0
 )
 }
@@ -20,34 +25,72 @@ test_diff(
 
 \item{y}{data from the treatment group.}
 
-\item{distribution}{character(1). Name of the parametric delay distribution to use.}
+\item{distribution}{Name of the distribution to use or distribution object.}
 
-\item{param}{character. Names of parameters to test difference for. Default value is \code{'delay'}.}
+\item{twoPhase}{logical(1). Do we model two phases per group? Default is \code{FALSE}, i.e. a single delay phase per group.}
 
-\item{R}{numeric(1). Number of bootstrap samples to evaluate the distribution of the test statistic.}
+\item{type}{character. Which type of tests to perform?}
+
+\item{param}{character. Names of parameters to test difference for. Default value is \code{'delay1'}. You can specify multiple parameters,
+by providing multiple parameter names or by concatenating them with a \code{+}
+in a single string. Ignored for non-parametric tests.}
+
+\item{method}{character. Which method to fit the models.}
+
+\item{profiled}{logical. Use the profiled likelihood?}
 
 \item{ties}{character. How to handle ties in data vector of a group?}
 
-\item{type}{character. Which type of tests to perform?}
+\item{doLogrank}{logical. Do also non-parametric logrank tests?}
+
+\item{R}{numeric(1). Number of bootstrap samples to evaluate the distribution of the test statistic.}
+
+\item{chiSqApprox}{logical flag. In bootstrap, should we estimate the best degrees of freedom for chi-square to match the distribution of the test statistic under H0?}
 
 \item{verbose}{numeric. How many details are requested? Higher value means more details. 0=off, no details.}
 }
 \value{
-list with the results of the test. Element P contains the different P-values, for instance from parametric bootstrap
+list with the results of the test. Element P contains the different
+P-values, for instance from parametric bootstrap
 }
 \description{
-It is in fact a model comparison between a null model where the parameters are enforced to be equal and an unconstrained full model.
-As test statistic we use twice the difference in best (=lowest) objective function value, i.e. 2 * (\code{val_0} - \code{val_1}).
-This is reminiscent of a likelihood ratio test statistic albeit the objective function is not a negative log-likelihood
-but the negative of the maximum product spacing metric.
+The test is in fact a model comparison between a null model where the
+parameters are enforced to be equal and an unconstrained full model. The
+model parameters can be fit with various methods: MPSE, MLEn, MLEc or MLEw.
+Parametric bootstrap tests and likelihood ratio tests are supported. As test
+statistic for the bootstrap test we use twice the difference in best
+(=lowest) objective function value, i.e. 2 * (\code{val_0} - \code{val_1}). The factor
+2 does not matter but it becomes reminiscent of a likelihood ratio test
+statistic albeit the objective function is not a negative log-likelihood in
+all cases (e.g. it is the negative of the maximum product spacing metric for
+the MPSE-method).
 }
 \details{
-High values of this difference speak against the null-model (i.e. high \code{val_0} indicates bad fit under 0-model and low values of \code{val_1} indicate a good fit under the more general model1.
-The test is implemented as a parametric bootstrap test, i.e. we
+High values of this difference speak against the null model (i.e., high
+\code{val_0} indicates bad fit under the null model0 and/or low values of \code{val_1}
+indicate a good fit under the more general model1. The test is implemented as
+a parametric bootstrap test, i.e., we
 \enumerate{
-\item take given null-model fit as ground truth
-\item regenerate data according to this model.
+\item take the given null-model fit as ground truth
+\item regenerate data according to this model fit
 \item recalculate the test statistic
 \item appraise the observed test statistic in light of the generated distribution under H0
 }
+}
+\examples{
+set.seed(123)
+# generate example data
+grA <- rweib_delayed(n = 70, delay1 = 5, shape1 = 2, scale1 = 8)
+grB <- rweib_delayed(n = 60, delay1 = 7, shape1 = 1.8, scale1 = 6)
+
+# difference in delay parameter is significant at 5\% level
+test_diff(x = grA, y = grB,
+  distribution = "weibull", param = "delay1",
+  type = "bootstrap", method = "MPSE", R = 150)
+
+# difference in shape parameter is not significant at 5\% level
+test_diff(x = grA, y = grB,
+ distribution = "weibull", param = "shape1",
+ type = "bootstrap", method = "MPSE", R = 150)
+
 }

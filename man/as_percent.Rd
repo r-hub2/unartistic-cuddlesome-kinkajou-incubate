@@ -7,7 +7,7 @@
 as_percent(x, digits = 1)
 }
 \arguments{
-\item{x}{numeric vector to be formated as percentage}
+\item{x}{numeric vector to be formatted as percentage}
 
 \item{digits}{requested number of decimal digits of the percentage}
 }

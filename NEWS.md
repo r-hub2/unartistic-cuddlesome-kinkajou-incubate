@@ -1,12 +1,37 @@
+# incubate 1.4.0.9000
+* current development version
+
+# incubate 1.4.0
+* allow for random right-censoring in the response variable
+* allow for delayed normal distribution as new statistical model
+* weighted MLE (MLEw)
+    * bugfix in weight approximation (relevant for W3)
+    * weight functions as non-exported functions (and not as internal data)
+    * use MLEc as standard criterion for MLEw method (as it has no own likelihood function)
+* objective function has `criterion=` as character option
+* implement S3-function `logLik`
+* `delay_test`: use name LRT (instead of LR) for likelihood ratio tests
+* new data sets:
+    * data set `long2017` from melanoma clinical trial
+    * historic data set `measles_sailer` with serial interval times of measles outbreak on the sailer HMS America from England to Australia in 1829
+
+# incubate 1.3.0
+* implement different maximum-likelihood based estimation methods (naive ML, weighed ML, corrected ML), with option to profile out Weibull's scale-parameter
+* use some log-transformed parameters internally for more stable and less constrained optimization
+* `test_diff`: allow for likelihood-ratio test
+* include restricted mean survival time function for delayed exponential and Weibull
+* [experimental] implement two delay phases for exponential and for Weibull distribution functions
+* update simulation R-scripts (in `inst/scripts/`) to also use ML-based estimation and LR-tests (LRT), with and without censoring
+
 # incubate 1.2.1
-* fix package help: due to changes in roxygen
+* fix package help after changes in roxygen
 
 # incubate 1.2.0
 * check for minimal number of observations and fail early if not enough observations
 * `test_diff`:
     * test-statistic gets lower bound of 0 enforced (a restricted model can not have better fit than unrestricted model)
     * deactivate Anderson-Darling (AD) GOF-test as its performance in simulations under two-group setting was unsatisfactory
-* include simulation R-scripts in package under `inst/scripts/` folder. When the package is installed the scripts are found at in the -directory `scripts/` within the package.
+* include simulation R-scripts in package under `inst/scripts/` folder. When the package is installed the scripts are found in the `scripts/` sub-directory of the package installation.
 * rename methods:
     * 'MSE' => 'MPSE' (as the term MSE has already other meanings)
     * 'MLE' => 'MLE0' (to indicate that this is the standard MLE that is not appropriate for delay models)

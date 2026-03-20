@@ -2,40 +2,69 @@
 % Please edit documentation in R/delay_estimation.R
 \name{delay_model}
 \alias{delay_model}
-\title{Fit a delayed Exponential or Weibull model to one or two given sample(s).}
+\title{Fit a delayed Exponential or Weibull model to one or two given sample(s)}
 \usage{
 delay_model(
-  x = stop("Specify observations!", call. = FALSE),
+  x = stop("Specify observations for first group x=!", call. = FALSE),
   y = NULL,
-  distribution = c("exponential", "weibull"),
-  method = c("MPSE", "MLE0"),
+  distribution = c("exponential", "weibull", "normal"),
+  twoPhase = FALSE,
   bind = NULL,
-  ties = c("density", "equidist", "random", "error"),
-  optim_args = NULL,
-  verbose = 0
+  method = c("MPSE", "MLEn", "MLEw", "MLEc"),
+  control = list()
 )
 }
 \arguments{
-\item{x}{numeric. observations of 1st group. Can also be a list of data from two groups.}
+\item{x}{numeric. observations of 1st group. Can also be a list of data from
+two groups.}
 
 \item{y}{numeric. observations from 2nd group}
 
-\item{distribution}{character. Which delayed distribution is assumed? Exponential or Weibull.}
+\item{distribution}{Which delayed distribution is assumed? Exponential or
+Weibull. Can be given as character or as distribution list-object.}
 
-\item{method}{character. Which method to fit the model? 'MPSE' = maximum product of spacings estimation \emph{or} 'MLE0' = standard maximum likelihood estimation}
+\item{twoPhase}{logical. Allow for two phases?}
 
-\item{bind}{character. parameter names that are bind together in 2-group situation.}
+\item{bind}{character. parameter names that are bound together in 2-group
+situation.}
 
-\item{ties}{character. How to handle ties.}
+\item{method}{character. Which method to fit the model? 'MPSE' = maximum
+product of spacings estimation \emph{or} 'MLEn' = naive maximum likelihood
+estimation \emph{or} 'MLEw' = weighted MLE' \emph{or} MLEc' = corrected MLE}
 
-\item{optim_args}{list. optimization arguments to use. Use \code{NULL} to use the data-dependent default values.}
-
-\item{verbose}{integer. level of verboseness. Default 0 is quiet.}
+\item{control}{list. Details that control the optimization. E.g., profiling,
+penalization.}
 }
 \value{
-\code{incubate_fit} the delay-model fit object. Or \code{NULL} if optimization failed (e.g. too few observations).
+\code{incubate_fit} the delay-model fit object with criterion to minimize.
+Or \code{NULL} if optimization failed (e.g. too few observations).
 }
 \description{
-Maximum product spacing is used to fit the parameters.
-Numerical optimization is done by \code{stats::optim}.
+Maximum product of spacings estimation is used by default to fit the
+parameters. Estimation via naive maximum likelihood (\code{method = "MLEn"}) is
+available, too, but MLEn yields severely biased estimates for small samples.
+MLEc is a corrected version of MLEn due to Cheng and Iles (1987).
+}
+\details{
+The parameter \verb{control=} allows to set specifics of the optimization
+process of the delay model fit. Possible list entries are
+\itemize{
+\item \code{verbose} level of verboseness. Default 0 is quiet
+\item \code{ties} character. Strategy to handle ties for \code{method = "MPSE"}. Either 'density' (default), 'equispaced' or 'error'.
+\item \code{profiled} aim to profile out a parameter
+\item \code{pen_shape} logical. Should high values of shape (for Weibull distribution) be penalized? Default is FALSE.
+\item \code{MLEw_weight} character. Name of method to build weights for MLEw-method.
+\item \code{MLEw_optim} character. Name for strategy to find extremum: either minimization of L2-norm of 1st partial derivatives (as stated in Cousineau, 2009) or using root-finding
+}
+
+Numerical minimization is normally done by \code{stats::optim}. If this
+minimization attempt fails \code{minqa::bobyqa} is used as fall-back. For MLEw, we
+can also use root finding of gradient function instead of minimization of
+L2-norm of gradient of MLEw-objective function.
+}
+\references{
+R. C. H. Cheng, T. C. Iles, Corrected Maximum Likelihood in
+Non-Regular Problems, Journal of the Royal Statistical Society: Series B
+(Methodological), Volume 49, Issue 1, September 1987, pp. 95–101,
+DOI: \url{https://doi.org/10.1111/j.2517-6161.1987.tb01430.x}
 }
