@@ -1,5 +1,7 @@
-# incubate 1.4.0.9000
-* current development version
+# incubate 1.4.1
+* `measles_sailer` data: generation numbering now starts at 0 (not 1)
+* fixed uniform censoring in `rexp_delayed` and `rweib_delayed`: Lambert W function (implemented in C++) useful for exponential, uniroot approach for Weibull
+* enhance documentation
 
 # incubate 1.4.0
 * allow for random right-censoring in the response variable
@@ -16,7 +18,10 @@
     * historic data set `measles_sailer` with serial interval times of measles outbreak on the sailer HMS America from England to Australia in 1829
 
 # incubate 1.3.0
-* implement different maximum-likelihood based estimation methods (naive ML, weighed ML, corrected ML), with option to profile out Weibull's scale-parameter
+* implement different maximum-likelihood based estimation methods with option to profile out Weibull's scale-parameter
+    * MLEn: naive ML
+    * MLEw: weighted ML
+    * MLEc: corrected ML
 * use some log-transformed parameters internally for more stable and less constrained optimization
 * `test_diff`: allow for likelihood-ratio test
 * include restricted mean survival time function for delayed exponential and Weibull
@@ -66,7 +71,7 @@
 * README: better intro text and more text for example
 
 # incubate 1.1.2
-* small changes for CRAN-warnings
+* small changes due to CRAN-warnings
 * test: bigger data set for delay estimation
 
 # incubate 1.1.1
@@ -83,7 +88,7 @@
 * bug fix: `plot.incubate_fit` has legible colour legend title
 
 # incubate 1.0.0
-* data: add experimental data `stankovic` from a publication Stankovic et al EGFL7 enhances surface expression of integrin doi:10.15252/emmm.201708420 (2018) as example data set
+* add data set `stankovic`: experimental data on tumour growth in mice (Stankovic et al, EGFL7 enhances surface expression of integrin (2018))
 * This version of package is also published at <https://zenodo.org/record/6462382>
 
 # incubate 0.9.9

@@ -2,7 +2,7 @@
 % Please edit documentation in R/delay_estimation.R
 \name{confint.incubate_fit}
 \alias{confint.incubate_fit}
-\title{Confidence intervals for parameters of incubate-model fits.}
+\title{Confidence intervals for parameters of delay model fit}
 \usage{
 \method{confint}{incubate_fit}(
   object,
@@ -24,7 +24,7 @@
 
 \item{R}{number of bootstrap replications. Used only if not \code{bs_data}-object is provided.}
 
-\item{bs_data}{character or bootstrap data object. If character, it specifies which type of bootstrap is requested and the bootstrap data will be generated. Data can also be provided here directly. If missing it uses parametric bootstrap.}
+\item{bs_data}{character or bootstrap data object. If character, it specifies which type of bootstrap is requested and the bootstrap data will be generated accordingly. Data can also be provided here directly. If missing it uses parametric bootstrap.}
 
 \item{bs_infer}{character. Which type of bootstrap inference is requested to generate the confidence interval?}
 
@@ -36,7 +36,8 @@
 A matrix (or vector) with columns giving lower and upper confidence limits for each parameter.
 }
 \description{
-Bias-corrected bootstrap confidence limits (either quantile-based or normal-approximation based) are generated.
+Bias-corrected bootstrap confidence limits (either based on quantile or normal approximation) are generated.
 Optionally, there are also variants that use a log-transformation first.
-At least R=1000 bootstrap replications are recommended. Default are quantile-based confidence intervals that internally use a log-transformation.
+Ordinary or parametric bootstrap are supported.
+At least R=1000 bootstrap replications are recommended. Default are quantile-based confidence intervals that internally use a log transformation.
 }

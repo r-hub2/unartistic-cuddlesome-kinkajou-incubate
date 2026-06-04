@@ -87,7 +87,7 @@ mexp_delayed(
 
 \item{lower.tail}{logical. Give cumulative probability of lower tail?}
 
-\item{log.p}{logical. P-value on log-sclae?}
+\item{log.p}{logical. P-value on log-scale?}
 
 \item{grad}{logical. Should the gradient be calculated at the given quantile values (and not the cumulative probabilities)?}
 
@@ -95,7 +95,7 @@ mexp_delayed(
 
 \item{n}{integer. Number of random observations requested.}
 
-\item{cens}{numeric. Expected proportion of random right-censored observations.}
+\item{cens}{numeric. In [0, 1). Expected proportion of random right-censored observations.}
 
 \item{t}{A numeric vector of times that restrict the mean survival. Default is \code{+Inf}, i.e., the unrestricted mean survival time.}
 }
@@ -123,6 +123,8 @@ Optionally, a second phase is possible where the hazard rate might change (param
 If only a single initial delay phase is there, the numerical arguments other than \code{n} are recycled to the length of the result (as with the exponential distribution in \code{stats}).
 With two phases, the arguments are \strong{not} recycled. Only the first element of delays and rates are used as it otherwise becomes ambiguous which delay and rate parameter apply for observations in different phases.
 Generally, only the first elements of the logical arguments are used.
+
+When \verb{cens=} is specified greater than 0, the actual number of censored observations is random. On average, it equals the expected number of censored observations as given by \code{cens}.
 }
 \seealso{
 \link[stats:Exponential]{stats::Exponential}

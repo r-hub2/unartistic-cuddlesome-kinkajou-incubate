@@ -69,26 +69,35 @@ summary.incubate_fit <- function(object, ...) {
 
 #' Plot a fitted delay-model object of class `incubate_fit`
 #'
-#' The fitted delay-model is plotted: a Kaplan-Meier survival curve is shown
-#' together with the parametric model fit.
+#' The fitted delay-model is plotted together with a Kaplan-Meier survival curve.
 #' Optionally, a fit of a second delay-model can be added. When given, we do
-#' some preliminary checks that the two models do match together.
+#' some preliminary checks that the two models do fit together.
 #'
 #' @details This function requires the `ggplot2`-package to be installed.
 #'
 #' @param x a fitted delay-model
-#' @param y an optional second fitted delay-model
+#' @param y optionally, a second fitted delay-model
 #' @param title character. Optionally, provide a title to the plot.
 #' @param subtitle character. Optionally, provide a subtitle to the plot. By
 #'   default the coefficients are shown.
 #' @param xlim numeric. Optionally, limits for the x-axis (time). If unspecified
 #'   starts from 0 to last observation.
 #' @param ... further arguments. Not in use here (it is required for generic plot function)
+#' @examples
+#' # fit a delay-weibull model to serial interval times from historic measles outbreak data:
+#' fm <- delay_model(survival::Surv(measles_sailer$serialInterval, measles_sailer$status),
+#'                   distribution = "weibull", method = "MLEw")
+#' plot(fm,
+#'      title = "Serial interval times of measles",
+#'      subtitle = "Delay-Weibull model fit using weighted MLE (MLEw)")
+#'
 #' @export
 plot.incubate_fit <- function(x, y, title, subtitle, xlim, ...) {
   stopifnot(inherits(x, "incubate_fit"))
-  haveY <- !missing(y) && !x[["twoGroup"]] &&
-    inherits(y, "incubate_fit") && !y[["twoGroup"]] &&
+  haveY <- !missing(y) &&
+    !x[["twoGroup"]] &&
+    inherits(y, "incubate_fit") &&
+    !y[["twoGroup"]] &&
     # check for same (number of) data. Really necessary?!
     NROW(x[["data"]]) == NROW(y[["data"]]) &&
     # expect different methods (as we use it as colour labels)
@@ -102,9 +111,7 @@ plot.incubate_fit <- function(x, y, title, subtitle, xlim, ...) {
     version = "3.3"
   )
 
-  distO <- x$distO
-  cumFun <- distO$cdf
-
+  cumFun <- x$distO$cdf
   cumFunY <- if (haveY) y$distO$cdf
 
   # add time = 0 per group.
@@ -155,7 +162,9 @@ plot.incubate_fit <- function(x, y, title, subtitle, xlim, ...) {
       )
     ) +
       ggplot2::geom_function(
-        mapping = if (haveY) ggplot2::aes(col = rep.int(x$method, NROW(kmFit0))),
+        mapping = if (haveY) {
+          ggplot2::aes(col = rep.int(x$method, NROW(kmFit0)))
+        },
         inherit.aes = FALSE,
         fun = cumFun,
         args = coef(x, group = "x"),
@@ -183,27 +192,34 @@ plot.incubate_fit <- function(x, y, title, subtitle, xlim, ...) {
   if (missing(title)) {
     title <- glue::glue_data(
       x,
-      "Fitted {distO$dist_name} {c('model ', 'models ')[[1L+(twoGroup || haveY)]]}",
+      "Fitted {x$distO$dist_name} {c('model ', 'models ')[[1L+(twoGroup || haveY)]]}",
       "{c('', 'with two delay phases')[[1L+twoPhase]]}"
     )
   } #fi
 
   if (missing(subtitle)) {
-
     coefPrint <- function(mod = x, gr, n_signif = 4) {
       co <- coef.incubate_fit(mod, group = gr)
-      paste(names(co), signif(co, digits = n_signif),
-            sep = ": ", collapse = ", ")
+      paste(
+        names(co),
+        signif(co, digits = n_signif),
+        sep = ": ",
+        collapse = ", "
+      )
     }
 
     subtitle <- if (x[["twoGroup"]]) {
-      paste(coefPrint(mod = x, "x", n_signif = 3),
-            coefPrint(mod = x, "y", n_signif = 3),
-            sep = " - ")
+      paste(
+        coefPrint(mod = x, "x", n_signif = 3),
+        coefPrint(mod = x, "y", n_signif = 3),
+        sep = " - "
+      )
     } else if (haveY) {
-      paste(coefPrint(mod = x, gr = "x", n_signif = 3),
-            coefPrint(mod = y, gr = "x", n_signif = 3),
-            sep = " - ")
+      paste(
+        coefPrint(mod = x, gr = "x", n_signif = 3),
+        coefPrint(mod = y, gr = "x", n_signif = 3),
+        sep = " - "
+      )
     } else {
       coefPrint(mod = x, gr = "x")
     }
@@ -219,7 +235,13 @@ plot.incubate_fit <- function(x, y, title, subtitle, xlim, ...) {
     ggplot2::labs(
       x = "Time",
       y = "Cumulative prop. of events",
-      col = if (x[["twoGroup"]]) "Group" else if (haveY) "Model" else NULL,
+      col = if (x[["twoGroup"]]) {
+        "Group"
+      } else if (haveY) {
+        "Model"
+      } else {
+        NULL
+      },
       title = title,
       subtitle = subtitle
     )
@@ -251,7 +273,6 @@ lines.incubate_fit <- function(x, mapping = NULL, ...) {
   distO <- x$distO
   cumFun <- distO$cdf
 
-
   ggplot2::geom_function(
     mapping = mapping,
     fun = cumFun,
@@ -259,7 +280,6 @@ lines.incubate_fit <- function(x, mapping = NULL, ...) {
     ...
   )
 }
-
 
 
 #' Extract Log-Likelihood
@@ -352,4 +372,3 @@ transform.incubate_fit <- function(`_data`, ...) {
 
   tr
 }
-

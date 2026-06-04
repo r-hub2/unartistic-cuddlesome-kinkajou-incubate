@@ -833,24 +833,24 @@ test_that("Partial derivatives of CDF of delayed distribution", {
 
 
 test_that("Censored random samples from delayed distributions", {
-  set.seed(2025 - 03 - 28)
+  set.seed(2026 - 06 - 04)
 
   # exponential distribution w/ right censoring
   settingsDF <- expand.grid(
     delay1 = c(0, 2, 5, 10, 25, 50, 75, 100),
     rate1 = c(0.001, .5, 1, 2, 5),
-    cens = c(0, .05, .1, .15, .2, .25, .3, .35, .4, .5)
+    cens = c(0, .05, .1, .15, .2, .25, .3, .35, .4, .5, .6)
   )
   settingsDF$censObs <- purrr::pmap_dbl(.l = settingsDF, .f = function(...) {
     ds <- rexp_delayed(n = 15510, ...)
     if (survival::is.Surv(ds)) {
-      1L - sum(ds[, 2]) / length(ds)
+      1L - colMeans(ds)[2]
     } else {
       stopifnot(is.numeric(ds))
       0
     }
   })
-  # diff = bias, deviation from expected target value
+  # diff = deviation from expected target value (=bias)
   #+neg diff means too few censorings
   settingsDF$censDiff <- settingsDF$censObs - settingsDF$cens
 
@@ -861,34 +861,38 @@ test_that("Censored random samples from delayed distributions", {
     settingsDF[idxZer0, "censObs"],
     expected = rlang::rep_along(idxZer0, 0)
   )
-  # never too many censorings
-  expect_lte(max(settingsDF$censDiff), 0.0001)
+  # on average we get the right proportion of censored observations
+  expect_lte(abs(median(settingsDF$censDiff)), 0.001)
+  expect_lte(abs(mean(settingsDF$censDiff)), 0.001)
   # # #viz:
-  # ggplot(settingsDF |> filter(cens > 0), aes(x = cens, y = censDiff, shape = factor(rate1), col = ordered(rate1))) +
+  # ggplot(settingsDF |> dplyr::filter(cens > 0), aes(x = cens, y = censDiff, shape = factor(rate1), col = ordered(rate1))) +
   #   geom_smooth(se=F, method = "lm", formula = y~poly(x,3), linewidth = 0.5, linetype = "dashed") +
   #   geom_jitter(width = .015, height = 0) +
   #   labs(col = "Rate", shape = "Rate", y = "Cens Prop Bias", title = "Exponential")
 
-  sDFAgg <- stats::aggregate(
-    settingsDF,
-    by = censDiff ~ rate1 + cens,
-    FUN = mean
-  )
-  purrr::walk(.x = seq_len(NROW(sDFAgg)), .f = \(idx) {
-    expect_equal(
-      sDFAgg$censDiff[idx],
-      expected = 0,
-      tolerance = .001 + sDFAgg$cens[idx]^2 / 3
+  local({
+    sDFAgg <- stats::aggregate(
+      settingsDF,
+      by = censDiff ~ rate1 + cens,
+      FUN = mean
     )
+    purrr::walk(.x = seq_len(NROW(sDFAgg)), .f = \(idx) {
+      expect_equal(
+        sDFAgg$censDiff[idx],
+        expected = 0,
+        tolerance = .007
+      )
+    })
   })
 
-  # integral formula (used for Weibull censoring calculation, cf vignette)
+  # integral formulas for exp(-x^b) (used for Weibull censoring calculation, cf vignette)
+  # improper integral (upper=Inf)
   purrr::walk2(
     .x = c(1, 1, 1, 3, 3, 3),
     .y = c(.5, 1, 2, .3, .5, .9),
     .f = ~ expect_equal(
       stats::integrate(
-        f = function(x, a, b) exp(-a * x^b),
+        f = function(t, a, b) exp(-a * t^b),
         a = .x,
         b = .y,
         lower = 0,
@@ -896,6 +900,25 @@ test_that("Censored random samples from delayed distributions", {
       )$value,
       expected = 1 / .y * .x^(-1 / .y) * gamma(1 / .y),
       tolerance = 1e-4
+    )
+  )
+
+  # definite integral
+  purrr::walk2(
+    .x = c(1, 1, 1, 3, 3, 3),
+    .y = c(.5, 1, 2, .3, .5, .9),
+    .f = ~ expect_equal(
+      stats::integrate(
+        f = function(t, b) exp(-t^b),
+        b = .y,
+        lower = 0,
+        upper = .x
+      )$value,
+      expected = 1 /
+        .y *
+        pgamma(.x^.y, shape = 1 / .y, scale = 1) *
+        gamma(1 / .y),
+      tolerance = 1e-5
     )
   )
 
@@ -909,17 +932,17 @@ test_that("Censored random samples from delayed distributions", {
   settingsDF$censObs <- purrr::pmap_dbl(.l = settingsDF, .f = function(...) {
     ds <- rweib_delayed(n = 17500, ...)
     if (survival::is.Surv(ds)) {
-      1L - sum(ds[, 2]) / length(ds)
+      1L - colMeans(ds)[2]
     } else {
       stopifnot(is.numeric(ds))
       0
     }
   })
-  # diff = bias, deviation from expected target value
-  #+neg diff means too few censorings
+  # diff = deviation from expected target value (=bias)
+  #+neg diff means too few censorings in sample
   settingsDF$censDiff <- settingsDF$censObs - settingsDF$cens
   # #viz:
-  # ggplot(settingsDF |> filter(cens > 0),
+  # ggplot(settingsDF |> dplyr::filter(cens > 0),
   #        aes(x = cens, y = censDiff, shape = factor(scale1), col = ordered(scale1))) +
   #   geom_smooth(se=F, method = "lm", formula = y~poly(x,3), linewidth = 0.5, linetype = "dashed") +
   #   geom_jitter(width = .015, height = 0) +
@@ -934,21 +957,22 @@ test_that("Censored random samples from delayed distributions", {
     expected = rlang::rep_along(idxZer0, 0)
   )
 
-  # never too many censorings!
-  expect_lte(max(settingsDF$censDiff), 0.0001)
-  # small shape values have too few censorings!
-  #+the events happen very early (due to "infant mortality" effect)
-  sDFAgg <- stats::aggregate(
-    settingsDF,
-    by = censDiff ~ shape1 + scale1 + cens,
-    FUN = mean
-  )
-  purrr::walk(.x = seq_len(NROW(sDFAgg)), .f = \(idx) {
-    expect_equal(
-      sDFAgg$censDiff[idx],
-      expected = 0,
-      tolerance = sDFAgg$cens[idx] / 3
+  # on average correct number of censorings
+  expect_lte(abs(median(settingsDF$censDiff)), 0.0001)
+  expect_lte(abs(mean(settingsDF$censDiff)), 0.0001)
+
+  local({
+    sDFAgg <- stats::aggregate(
+      settingsDF,
+      by = censDiff ~ shape1 + scale1 + cens,
+      FUN = mean
     )
+    purrr::walk(.x = seq_len(NROW(sDFAgg)), .f = \(idx) {
+      expect_equal(
+        sDFAgg$censDiff[idx],
+        expected = 0,
+        tolerance = .01
+      )
+    })
   })
-  #sDFAgg$cens[i]/17 + exp(-(sDFAgg$shape1[i]*7.1))
 })

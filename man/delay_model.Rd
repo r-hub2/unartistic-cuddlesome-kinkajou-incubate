@@ -66,5 +66,5 @@ L2-norm of gradient of MLEw-objective function.
 R. C. H. Cheng, T. C. Iles, Corrected Maximum Likelihood in
 Non-Regular Problems, Journal of the Royal Statistical Society: Series B
 (Methodological), Volume 49, Issue 1, September 1987, pp. 95–101,
-DOI: \url{https://doi.org/10.1111/j.2517-6161.1987.tb01430.x}
+\doi{10.1111/j.2517-6161.1987.tb01428.x}
 }

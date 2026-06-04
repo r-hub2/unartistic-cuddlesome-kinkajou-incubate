@@ -1,16 +1,17 @@
 #!/usr/bin/env Rscript
 # mkuhn, 2023-04-05
-# internal data for the incubate package
+# Monte Carlo simulation to estimate the median weights W1, W2 and W3 for the weighted MLE approach (Cousineau, 2009)
 #
-# simulate median weights W1, W2 and W3
-# for the weighed MLE approach (Cousineau, 2009)
-# results are stored as list in "MLEw_mcs.rds" in the current directory
-####
+# the weight estimates (from the Monte Carlo simulation) are stored as list in file `MLEw_mcs.rds`.
+# These weight estimates are the basis for weight approximation functions,
+# which are stored as internal data of incubate package (see `data-raw/data_internal.R`).
+# For this to work, the results file `MLEw_mcs.rds` is expected to be also in directory `data-raw/`.
+##
 
 # init -----
 
 suppressPackageStartupMessages(library("future"))
-suppressPackageStartupMessages(library('R.utils'))
+suppressPackageStartupMessages(library("R.utils"))
 
 message(
   "Script to prepare MLE weights to be stored as internal data of incubate package!"
@@ -45,10 +46,9 @@ cmdArgs <- R.utils::commandArgs(
 
 if (any(c('help', 'h') %in% names(cmdArgs))) {
   cat(
-    'Run Monte-Carlo simulations to estimate the median weights W1, W2 and W3 for weighted maximum likelihood approach (MLEw)\n'
+    'Run Monte Carlo simulations to estimate the median weights W1, W2 and W3 for weighted maximum likelihood approach (MLEw)\n'
   )
-  cat('And also find approximating functions for these weights.\n')
-  cat('See as reference Cousineau, 2009.\n')
+  cat('Reference: Cousineau (2009).\n')
   cat('  --help\t print this help\n')
   cat(
     '  --seed=\t if given, set random seed at the start of the script. Default is date-dependent.\n'
@@ -57,12 +57,12 @@ if (any(c('help', 'h') %in% names(cmdArgs))) {
     '  --workers=\t number of parallel computations using `future.callr`. The only level of parallelization is for n, the different numbers of observations (and scale for W3).\n'
   )
   cat(
-    '  --mcnrep=\t size of Monte-Carlo study: number of replications which are then aggregated. Default value is 1001.\n'
+    '  --mcnrep=\t size of Monte Carlo study: number of replications which are then aggregated. Default value is 1001.\n'
   )
   cat(
-    '  --resultsDir=\t directory where to save the result files (when not internal) Defaults to the directory where Rscript is executed.\n'
+    '  --resultsDir=\t directory where to save the result files. Defaults to the directory where Rscript is executed.\n'
   )
-  cat('  --overwrite/--force\t Overwrite data file when it already exists?\n')
+  cat('  --overwrite/--force\t overwrite data file when it already exists?\n')
   quit(save = 'no')
 }
 
@@ -120,19 +120,19 @@ if (DEBUG) {
   cat("Overwrite: ", myOverwrite, "\n")
 }
 
-# fail early
-rdataFile <- file.path(myResultsDir, "MLEw_weights.RData")
-if (file.exists(rdataFile) && !myOverwrite) {
+# check results file: fail early
+resFile <- file.path(myResultsDir, "MLEw_mcs.rds")
+if (file.exists(resFile) && !myOverwrite) {
   stop(
     "File ",
-    rdataFile,
-    "already exists! You would need to set overwrite-flag.",
+    resFile,
+    "already exists! You would need to set overwrite flag.",
     call. = FALSE
   )
 }
 
 
-# set up simulation settings -----
+# simulation settings -----
 
 if (mySeed > 0L) {
   set.seed(mySeed)
@@ -197,6 +197,9 @@ shape_vctr <- c(
 ) |>
   unique()
 
+
+# aggregation function to get from sampling distribution to the weight estimate
+# Cousineau (2009) suggests to use the median!
 aggFun <- stats::median
 isMedian <- TRUE
 stopifnot(is.function(aggFun), "na.rm" %in% formalArgs(aggFun))
@@ -263,10 +266,15 @@ W12_mcs_df <- dplyr::inner_join(
 message("Start simulation for W3")
 #currently, W3 is using simulation on log-transform, aggregates and then backtransform via exp.
 #+this works for median but for instance not for mean!
-stopifnot(isMedian)
+stopifnot(
+  `aggFun for W3 should be median (as we internally use monotone transformations)` = isMedian
+)
 
 # W3 needs corresponding W1
-stopifnot(exists("W1_mcs"), length(W1_mcs) == length(nObs_vctr))
+stopifnot(
+  `W1_mcs not found` = exists("W1_mcs"),
+  `W1_mcs does not match nObs` = length(W1_mcs) == length(nObs_vctr)
+)
 
 W3_mcs_df <- tidyr::expand_grid(
   nObs = as.integer(nObs_vctr),
@@ -308,10 +316,10 @@ if (min(diff(W12_mcs_df$W2)) > -1e-5) {
 }
 
 
-# save  & exit ------
+# save & exit ------
 
-# Monte-Carlo simulation results for median
-.MLEw_mcs <- list(
+# Monte Carlo simulation results for W1, W2 and W3
+MLEw_mcs <- list(
   W12 = W12_mcs_df,
   W3 = W3_mcs_df,
   settings = list(
@@ -325,12 +333,16 @@ if (min(diff(W12_mcs_df$W2)) > -1e-5) {
   )
 )
 
-
+# clean up
 try(expr = rm(W12_mcs_df, W3_mcs_df), silent = FALSE)
 
+# write out results of Monte Carlo simulation
+saveRDS(MLEw_mcs, file = resFile)
 
-# result of Monte-Carlo simulation
-saveRDS(.MLEw_mcs, file = file.path(myResultsDir, "MLEw_mcs.rds"))
+message(
+  "Saved Monte Carlo simulation results for MLE weights to file: ",
+  resFile
+)
 
 
 # tear-down
@@ -340,6 +352,5 @@ future::plan(future::sequential())
 message("\n\n+++\nThese are warnings from the script:\n+++\n")
 warnings()
 
-
-message("~~ Fine ~~")
+message("~~ Fine ~~\n")
 message("Finished script at ", toString(Sys.time()))

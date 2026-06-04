@@ -119,7 +119,7 @@ positive.}
 \item{n}{integer. Number of random observations requested.}
 
 \item{cens}{numeric. Proportion of random right-censored observations. For
-small values of shape1, on average fewer censorings are achieved.}
+small values of shape1, on average fewer censorings are achieved. There is still a bug in the CDF for uniform censoring ansatz!}
 
 \item{t}{A numeric vector of times that restrict the mean survival. Default
 is \code{+Inf}, i.e., the unrestricted mean survival time.}

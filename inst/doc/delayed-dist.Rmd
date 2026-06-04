@@ -254,17 +254,17 @@ ggplot() + xlim(0, 7) +
 
 
 
-## Implementing random right censoring
+## Random right censoring
 The functions for random generation of data `rexp_delayed()` and
 `rweib_delayed()` have an option to produce right censored data. Currently, we
 implement random right censoring under a **uniform censoring scheme**, starting
 after the initial delay phase.^[Question is if we allow $C$ to occur during the
 incubation period. If yes and there is a long delay then we will see many
 censored observations during the incubation period which might be odd.
-Therefore, we decided to model the censoring process as $C \sim U(α, Z)$.] The
-censoring process $C$ is independent of the event process $X$. The observed time
-is $\min(X,C)$ and it is an event if and only if $X≤C$, i.e., when the event
-"makes it" before the censoring happens.
+Therefore, we model the censoring process as $C \sim U(α, Z)$.] The
+censoring process $C$ is independent of the event process $X$.
+The observed time is $\min(X,C)$ and it is an event if and only if $X≤C$,
+i.e. when the event happens before the censoring does.
 
 You provide the desired expected proportion of right censoring π via parameter
 `cens=`. This information determines the upper limit `Z` for the censoring
@@ -283,32 +283,42 @@ $$
 $$
 
 For a uniform censoring process with lower bound α and upper bound $Z$
-we have $F_C(x) = \frac{x-α}{Z-α}$.
-<!-- \frac{x}{Z}$. -->
-We make sure to never exceed the specified proportion of right censorings.
+we have $F_C(x) = \frac{x-α}{Z-α}$ for $x ∈ [α,Z]$
+and $F_C(x) = 0$ for $x < α$ and $F_C(x) = 1$ for $x > Z$.
+
 
 
 ### Exponential
 Substituting the density $f_X(x) = 𝟙_{x≥α} · λ \exp(-λ·(x-α))$ and using
-integration by parts:
+integration by parts, we aim to solve for the upper bound $Z$ of the censoring process.
+
 $$
 \begin{equation*}
 \begin{split}
 π = P(C<X) &= ∫_α^∞ f_X(x) · F_C(x) dx\\
-  &= ∫_α^∞ λ \exp(-λ·(x-α)) \frac{x-α}{Z-α} dx\\
-  &= ∫_0^∞ λ \exp(-λ·t) \frac{t}{Z-α} dt\\
-  &= \frac{1}{Z-α} · \Big\{ [-\exp(-λ·t) t]_{t=0}^{t=\infty} - ∫_0^∞ -\exp(-λ·t) dt  \Big\}\\
-  &= \frac{1}{Z-α} · \Big\{ [0-0] + ∫_0^∞ \exp(-λ·t) dt  \Big\}\\
-  &= \frac{1}{Z-α} · \Big[ -\frac{1}{λ} \exp(-λ·t) \Big]_{t=0}^{t=\infty}\\
-  &= \frac{1}{λ (Z-α)}
+  &= ∫_α^Z λ \exp(-λ·(x-α)) \frac{x-α}{Z-α} dx + ∫_Z^∞ λ \exp(-λ·(x-α)) dx\\
+  &= ∫_0^{Z-α} λ \exp(-λ·t) \frac{t}{Z-α} dt   + ∫_{Z-α}^∞ λ \exp(-λ·t) dt\\
+  &= \frac{1}{Z-α} · \Big\{ [-\exp(-λ·t) t]_{t=0}^{t=Z-α} - ∫_0^{Z-α} -\exp(-λ·t) dt  \Big\} + [-\exp(-λ·t)]_{t=Z-α}^{t=∞} \\
+  &= \frac{1}{Z-α} · \Big\{ [-\exp(-λ·(Z-α)) (Z-α) - 0] + ∫_0^{Z-α} \exp(-λ·t) dt  \Big\} - [0 - \exp(-λ·(Z-α))]\\
+  &= -\exp(-λ·(Z-α)) + \frac{1}{Z-α} · \Big[ -\frac{1}{λ} \exp(-λ·t) \Big]_{t=0}^{t=Z-α} + \exp(-λ·(Z-α))\\
+  &= - \frac{1}{λ(Z-α)} · \Big[ \exp(-λ·(Z-α)) - 1 \Big]\\
+  &= \frac{1}{λ(Z-α)} + \frac{\exp(-λ·(Z-α))}{-λ(Z-α)}\\
 \end{split}
 \end{equation*}
 $$
 
-We can solve for $Z$:
+We aim to solve for $Z$ given the desired expected proportion of right censoring π.
+When writing $t := λ·(Z-α)$ we need to solve $1 - π t = \exp(-t)$ for $t > 0$ (as we set $Z > α$).
+We rearrange terms and get
 $$
-π λ (Z-α) = 1 \qquad ⇔ \qquad Z-α = \frac{1}{π λ} \qquad ⇔ \qquad Z = α + \frac{1}{πλ}
+\underbrace{- \frac{1}{π} · \exp(-\frac{1}{π})}_{=: x} = -\frac{1-πt}{π} · \exp(-\frac{1-πt}{π})
 $$
+The principal branch $W_0$ of Lambert W function gives a solution $t_0$ which happens to be greater 0 here (when π < 1).^[The other solution through branch $W_{-1}$ might be negative and we don't investigate it further here.]
+$$
+-\frac{1-π t_0}{π} = W_0(x) \qquad ⇔ \qquad
+t_0 = \frac{1}{π} + W_0(x)
+$$
+Substituting the original expression for $t$, we get $\hat Z = α + \frac{1}{λ} · (\frac{1}{π} + W_0(x))$.
 
 As an example, to draw a random sample from a delayed exponential that (on
 average) has 30% right censorings, we can use the following call:
@@ -325,32 +335,69 @@ sum(x[,2] == 0)/length(x)
 The density of delayed Weibull is
 $f_X(x) = 𝟙_{x≥α} · \frac{γ}{σ} · (\frac{x-α}{σ})^{γ-1} \exp(-(\frac{x-α}{σ})^γ)$
 with shape parameter $γ$ and scale parameter $σ$.
-Then, using integration by parts and using
-$∫_0^∞ \exp(-a · x^b) dx = \frac{1}{b} a^{-1/b} · Γ(\frac{1}{b})$
-for $a=1$ and $b=γ$, the shape parameter,
+Then, using substitution $t = x - α$ 
 we get
 $$
 \begin{equation*}
 \begin{split}
-π = P(C<X) &= ∫_α^∞ f_X(x) · F_C(x) dx\\
-  &= ∫_α^∞ \frac{γ}{σ} · (\frac{x-α}{σ})^{γ-1} \exp(-(\frac{x-α}{σ})^γ) \frac{x-α}{Z-α} dx\\
-  &= ∫_0^∞ \frac{γ}{σ} · (\frac{t}{σ})^{γ-1} \exp(-(\frac{t}{σ})^γ) \frac{t}{Z-α} dt\\
-  &= \frac{γ}{σ(Z-α)} · ∫_0^∞ t · \frac{γ}{σ} · (\frac{t}{σ})^{γ-1} \exp(-(\frac{t}{σ})^γ) dt\\
-  &= \frac{γ}{σ(Z-α)} · \Big\{ [-t · \frac{σ}{γ} · \exp(-(\frac{t}{σ})^γ)]_{t=0}^{t=\infty} - ∫_0^∞ -\frac{σ}{γ} · \exp(-(\frac{t}{σ})^γ) dt  \Big\}\\
-  &= \frac{γ}{σ(Z-α)} · \Big\{ [0 - 0] + \frac{σ}{γ} ∫_0^∞ \exp(-(\frac{t}{σ})^γ) dt \Big\}\\
-  &= \frac{1}{Z-α} · ∫_0^∞ \exp(-(\frac{t}{σ})^γ) dt\\
-  &= \frac{σ}{Z-α} · ∫_0^∞ \exp(-u^γ) du\\
-  &= \frac{σ}{Z-α} · \frac{1}{γ} · Γ(\frac{1}{γ})
+π &= P(C<X) = ∫_α^∞ f_X(x) · F_C(x) dx\\
+  &= ∫_α^Z \frac{γ}{σ} · (\frac{x-α}{σ})^{γ-1} \exp(-(\frac{x-α}{σ})^γ) · \frac{x-α}{Z-α} dx + ∫_Z^∞ \frac{γ}{σ} · (\frac{x-α}{σ})^{γ-1} \exp(-(\frac{x-α}{σ})^γ)  dx\\
+  &= ∫_0^{Z-α} \frac{γ}{σ} · (\frac{t}{σ})^{γ-1} \exp(-(\frac{t}{σ})^γ) \frac{t}{Z-α} dt + ∫_{Z-α}^∞ \frac{γ}{σ} · (\frac{t}{σ})^{γ-1} \exp(-(\frac{t}{σ})^γ)  dt\\
+  &= \frac{γ}{σ(Z-α)} · ∫_0^{Z-α} t · (\frac{t}{σ})^{γ-1} \exp(-(\frac{t}{σ})^γ) dt + \frac{γ}{σ} · ∫_{Z-α}^∞ (\frac{t}{σ})^{γ-1} \exp(-(\frac{t}{σ})^γ) dt\\
 \end{split}
 \end{equation*}
 $$
 
-We can solve for $Z$:
+
+We apply integration by parts in the first integral (with $u=t$ and $v=-\frac{σ}{γ} \exp(-(\frac{t}{σ})^γ)$).
+At the end, we use
+$∫_0^s \exp(-x^b) dx = \frac{1}{b} · γ(\frac{1}{b}, s^b)$,
+where γ(,) is the incomplete (not regularized) gamma function.
 $$
-π · (Z-α) = σ · \frac{1}{γ} · Γ(\frac{1}{γ}) \qquad ⇔ \qquad
-Z = α + \frac{σ}{π γ} · Γ(\frac{1}{γ})
-%%% Z = \frac{α + \frac{σ}{γ}·Γ(\frac{1}{γ})}{π}
+\begin{equation*}
+\begin{split}
+\text{1st term} &= \frac{γ}{σ(Z-α)} · \Big\{ [-t · \frac{σ}{γ} · \exp(-(\frac{t}{σ})^γ)]_{t=0}^{t=Z-α} - ∫_0^{Z-α} -\frac{σ}{γ} · \exp(-(\frac{t}{σ})^γ) dt  \Big\}\\
+  &= \frac{γ}{σ(Z-α)} · \Big\{ [-(Z-α) · \frac{σ}{γ} · \exp(-(\frac{Z-α}{σ})^γ) - 0] + \frac{σ}{γ} ∫_0^{Z-α} \exp(-(\frac{t}{σ})^γ) dt \Big\} \\
+  &= -\exp(-(\frac{Z-α}{σ})^γ) + \frac{1}{Z-α} · ∫_0^{Z-α} \exp(-(\frac{t}{σ})^γ) dt \\
+  &= -\exp(-(\frac{Z-α}{σ})^γ) + \frac{σ}{Z-α} · ∫_0^{\frac{Z-α}{σ}} \exp(-s^γ) ds \\
+  %% 1st term: incomplete gamma function
+  &= -\exp(-(\frac{Z-α}{σ})^γ) + \frac{σ}{Z-α} · \frac{1}{γ} ·\gamma(\frac{1}{γ}, (\frac{Z-α}{σ})^γ)
+  %\quad \text{(incomplete non-normalized gamma function)}
+\end{split}
+\end{equation*}
 $$
+
+The integral in the second term has a closed form solution,
+using anti-derivative $-\frac{σ}{γ} \exp(-(\frac{t}{σ})^γ)$ (exactly the substitution $v$ in first term).
+$$
+\begin{equation*}
+\begin{split}
+\text{2nd term} &= \frac{γ}{σ} · \left.\Big( -\frac{σ}{γ} \exp(-(\frac{t}{σ})^γ) \Big) \right\rvert_{t=Z-α}^{t=∞}\\
+  &= \frac{γ}{σ} · \Big\{ 0 - \Big(-\frac{σ}{γ} \exp(-(\frac{Z-α}{σ})^γ)\Big) \Big\}\\
+  &= \exp(-(\frac{Z-α}{σ})^γ)
+\end{split}
+\end{equation*}
+$$
+
+Together, we get
+$$
+\begin{equation*}
+\begin{split}
+π &= -\exp(-(\frac{Z-α}{σ})^γ) + \frac{σ}{Z-α} · \frac{1}{γ} ·\gamma(\frac{1}{γ}, (\frac{Z-α}{σ})^γ) + \exp(-(\frac{Z-α}{σ})^γ)\\
+  &= \frac{σ}{Z-α} · \frac{1}{γ} ·\gamma(\frac{1}{γ}, (\frac{Z-α}{σ})^γ)\\
+  &= kr^{-k} · \gamma(k, r) \qquad \text{with } k = \frac{1}{γ}>0 \text{ and } r = (\frac{Z-α}{σ})^γ
+\end{split}
+\end{equation*}
+$$
+We take log and gather terms on one side and consider the objective function
+$$
+f_k(r) = \log(k) - k \log(r) + \log(\gamma(k, r)) - \log(π)
+$$
+For given $k$, it is a monotonically decreasing function in $r$.
+We can solve for $r$ by means of root finding. 
+A root $r_0$ of $f_k$ gives us the estimation for $Z$,
+namely $\hat Z = α + σ r_0^{\frac{1}{γ}}$.
+
 
 
 As an example, to draw a random sample from a delayed Weibull with different
@@ -373,6 +420,14 @@ survival::survfit(c(x1, x2) ~ rep(c("x1","x2"), each = 24)) |>
   
 ```
 
+### Implementation note
+Generating data depends on the pseudo-random number generator (PRNG) and the seed.
+For censored observations, we generate both the event time $X$ and the censoring time $C$ and then we take the minimum of both as observed time.
+Therefore, the actual proportion of right censorings in a sample will generally fluctuate around the expected proportion π, we might see more or less than π right censorings in a sample. The larger the sample size, the closer we expect to get to the expected proportion π (law of large numbers).
+
+
+
+
 ## MLEc
 Corrected MLE (MLEc) was proposed by Cheng and Iles (1987). It uses the normal likelihood except for the first observation that is instrumental for the delay estimation. For the first observation MLEc uses the difference in cumulative distribution function between the first two observations.
 The log-likelihood function becomes, using $z_i := x_i - α$,
@@ -390,3 +445,6 @@ l_\mathbf{x}(α, γ, β) ≈ -(\frac{z_1}{β})^γ - \exp(-\frac{z_2^γ - z_1^γ}
 $$
 
 We could use partial derivatives to find local maxima of this approximate log-likelihood.
+
+
+

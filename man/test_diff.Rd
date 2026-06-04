@@ -86,11 +86,10 @@ grB <- rweib_delayed(n = 60, delay1 = 7, shape1 = 1.8, scale1 = 6)
 # difference in delay parameter is significant at 5\% level
 test_diff(x = grA, y = grB,
   distribution = "weibull", param = "delay1",
-  type = "bootstrap", method = "MPSE", R = 150)
+  type = "bootstrap", method = "MPSE", R = 50)
 
-# difference in shape parameter is not significant at 5\% level
+# but the non-parametric logrank test is not significant
+# no need to specify parameters
 test_diff(x = grA, y = grB,
- distribution = "weibull", param = "shape1",
- type = "bootstrap", method = "MPSE", R = 150)
-
+  type = "logrank")
 }

@@ -35,7 +35,7 @@ functions provided by this package) for the two groups.}
 \item{param}{character. Parameter name(s) which are to be tested for
 difference and for which to simulate the power. Default value is
 \code{'delay1'}. You can specify multiple parameters, by giving a vector or
-by concatenating them with a \code{+} in a single string.}
+by concatenating them with a \code{+} in a single string. For logrank tests, this argument is ignored.}
 
 \item{test}{character. Which test to use for this power estimation? Defaults
 to \code{"bootstrap"}. Non-parametric logrank test is also possible (either
@@ -73,18 +73,21 @@ more details. 0=off, no details.}
 List of results of power simulation. Or \code{NULL} in case of errors.
 }
 \description{
+Simulate power for a test of difference between two groups for a given distribution with delay.
+The effect is specified in terms of the model parameters for both groups.
 There are two modes of operation:
 \enumerate{
-\item \code{power=NULL}: simulate power based on given sample size \code{n}
+\item \code{power=NULL}: simulate power based on given sample size \code{n} (post-hoc power estimation)
 \item \code{n=NULL}: search iteratively for a suitable sample size \code{n} for a given power
 }
 }
 \details{
-In both cases, the distribution, the parameters that are tested for, the type
-of test and the effect size (\verb{eff=}) need to be specified. Specify the effect as a list with two elements,
-each element holds the parameter vector describing the distribution of the outcome per group.
+The power is estimated by simulating data according to the specified model and testing for differences in the simulated data.
+The proportion of simulated datasets where the test rejects the null hypothesis at the given significance level is the estimated power.
+The test can be a parametric bootstrap test or a non-parametric logrank test. For logrank tests, the \verb{param=} argument should not be specified.
+Specify the effect size (\verb{eff=}) as a list with two elements, each element holds the parameter vector of the distribution of the response variable of one group.
 The fitting method (\verb{method=}) and the kind of significance test (\verb{test=}) are handed down to \code{\link[=test_diff]{test_diff()}}.
-The more power simulation rounds (parameter \verb{nPowerSim=}) the more densely the space of data
+The more power simulation rounds (parameter \verb{nPowerSim=}) the more densely the space of possible data
 according to the specified model is sampled.
 
 Note that estimating sample size \code{n} is computationally intensive.
@@ -98,10 +101,18 @@ pay off to rerun the function with an adapted admissible range for the sample
 size by giving a narrower range in \verb{nRange=}.
 }
 \examples{
-# simulate power for a given sample size ---------------------------
-# test for difference in delay in an exponential model,
+# Simulate power for a given sample size:
+# test for any difference in a delay-exponential model using logrank test
 # the assumed effect is given in terms of model parameters for both groups
-# the power is estimated based on nPowersim = 30 simulated datasets
+power_diff(
+  eff = list(ctrl = c(delay1 = 5, rate1 = .09),
+             trtm = c(delay1 = 7, rate1 = .12)),
+  test = "logrank",
+  n = 16, power = NULL, nPowerSim = 300)
+
+\dontrun{
+# test for difference in delay in a delay-exponential model via a bootstrap test:
+# the power is estimated based on nPowersim = 520 simulated datasets
 # for real applications, use a higher nPowerSim (e.g. 1600) for more
 # precise power estimation and a higher R (e.g. 400) for more precise
 # P-value estimation in each simulation round
@@ -112,22 +123,22 @@ power_diff(
   param = "delay1",
   test = "bootstrap", method = "MPSE",
   n = 16, power = NULL,
-  nPowerSim = 30, R = 100)
+  nPowerSim = 520, R = 160)
 
-# simulate required sample size for a given power -----------------------
-# provide a range for the sample size search, e.g. nRange = c(12, 25)
-# this takes more time than the previous example, as the function
-# iteratively searches for a sample size that yields the requested power
-\dontrun{
-set.seed(123) # for reproducibility
+# test for difference in rate in a delay-exponential model via a bootstrap test:
+# required sample size is estimated for a given power.
+# provide a suitable range for the sample size search via nRange=.
+# The search for n takes more time than the previous example, as the function
+# iteratively evaluates different sample sizes in order to find the right one.
+set.seed(1234) # for reproducibility
 power_diff(
-  eff = list(grA = c(delay1 = 5.2, rate1 = .1),
-             grB = c(delay1 = 7, rate1 = .15)),
-  param = "delay1",
+  eff = list(grA = c(delay1 = 5, rate1 = .07),
+             grB = c(delay1 = 7, rate1 = .18)),
+  param = "rate1",
   test = "bootstrap", method = "MPSE",
   n = NULL, power = 0.8,
-  nPowerSim = 120, R = 100,
-  nRange = c(12, 25))
+  nPowerSim = 480, R = 150,
+  nRange = c(18, 48))
 }
 }
 \seealso{

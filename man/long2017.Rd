@@ -24,8 +24,8 @@ long2017
 \description{
 Data stem from a double-blind, placebo-controlled phase 3 trial where n=870
 patients with completely resected, stage III melanoma with BRAF V600E or
-V600K mutations were randomly assigned to receive oral dabrafenib plus
-trametinib (combination therapy, 438 patients) or two matched placebo tablets
+V600K mutations were randomly assigned to receive oral Dabrafenib plus
+Trametinib (combination therapy, 438 patients) or two matched placebo tablets
 (432 patients) for 12 months.
 }
 \details{

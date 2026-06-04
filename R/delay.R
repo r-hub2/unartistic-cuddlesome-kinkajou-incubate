@@ -13,6 +13,8 @@
 #' With two phases, the arguments are **not** recycled. Only the first element of delays and rates are used as it otherwise becomes ambiguous which delay and rate parameter apply for observations in different phases.
 #' Generally, only the first elements of the logical arguments are used.
 #'
+#' When `cens=` is specified greater than 0, the actual number of censored observations is random. On average, it equals the expected number of censored observations as given by `cens`.
+#'
 #' @param x A numeric vector of values for which to get the density.
 #' @param q A numeric vector of quantile values.
 #' @param t A numeric vector of times that restrict the mean survival. Default is `+Inf`, i.e., the unrestricted mean survival time.
@@ -26,9 +28,9 @@
 #' @param rate2 numeric. The second event rate, must be non-negative.
 #' @param log logical. Return value on log-scale?
 #' @param lower.tail logical. Give cumulative probability of lower tail?
-#' @param log.p logical. P-value on log-sclae?
-#' @param cens numeric. Expected proportion of random right-censored observations.
-#' @return Functions pertaining to the delayed exponential distribution:
+#' @param log.p logical. P-value on log-scale?
+#' @param cens numeric. In [0, 1). Expected proportion of random right-censored observations.
+#' @returns Functions pertaining to the delayed exponential distribution:
 #' * `dexp_delayed` gives the density
 #' * `pexp_delayed` gives the vector of cumulative probabilities or the gradient matrix (nbr parameters x quantile times)
 #' * `qexp_delayed` gives the quantile function
@@ -438,11 +440,11 @@ rexp_delayed <- function(
     } else {
       # independent uniform censoring process U(delay1, Z) where Z is chosen
       #+as to give expected proportion of right-censoring
-      censTime <- stats::runif(
-        n = n,
-        min = delay1,
-        max = delay1 + 1 / (rate1 * cens)
-      )
+      censTime <- delay1 +
+        stats::runif(
+          n = n,
+          max = (1 / cens + lambertW0_cpp(-exp(-1 / cens) / cens)) / rate1
+        )
       censIdx <- which(censTime < evTime)
 
       # result: element-wise minimum of both processes
@@ -451,16 +453,17 @@ rexp_delayed <- function(
 
       # avoid having too many censorings by chance
       if (length(censIdx) > 0) {
-        maxNbrCens <- if (cens == 1) {
-          n
-        } else {
-          min(n - 1, round(n * cens, digits = 0))
-        }
-        maxNbrCens <- max(1, maxNbrCens)
-        maxNbrCens <- min(maxNbrCens, length(censIdx))
-        censIdx <- censIdx[seq_len(maxNbrCens)]
+        # cap number of censorings at expected number of censorings (rounding to integer)
+        #+but I don't like it because I want to trust the process
+        # maxNbrCens <- if (cens == 1) {
+        #   n
+        # } else {
+        #   min(n - 1, round(n * cens, digits = 0))
+        # }
+        # maxNbrCens <- max(1, maxNbrCens)
+        # maxNbrCens <- min(maxNbrCens, length(censIdx))
+        # censIdx <- censIdx[seq_len(maxNbrCens)]
 
-        #res <- pmin.int(evTime, censTime)
         res[censIdx] <- censTime[censIdx]
         evStatus[censIdx] <- 0
       } #fi
@@ -654,7 +657,7 @@ mexp_delayed <- function(
 #' @param lower.tail logical. Give cumulative probability of lower tail?
 #' @param log.p logical. P-value on log-scale?
 #' @param cens numeric. Proportion of random right-censored observations. For
-#'   small values of shape1, on average fewer censorings are achieved.
+#'   small values of shape1, on average fewer censorings are achieved. There is still a bug in the CDF for uniform censoring ansatz!
 #' @return Functions pertaining to the delayed Weibull distribution:
 #' * `dweib_delayed` gives the density
 #' * `pweib_delayed` gives the vector of cumulative probabilities or the gradient matrix (nbr parameters x quantile times)
@@ -1173,11 +1176,19 @@ rweib_delayed <- function(
       # with shape1 minute the upper bound of the uniform support explodes and hence few censorings
       #+correct upward for small shape1 parameter helps to prop up censoring level in these cases
       censTime <- local({
-        shape1B <- max(0.25, if (shape1 < 1) sqrt(shape1) else shape1)
+        # find root to get the upper bound of the uniform support
+        # r is defined as ((Z - delay1) / scale1)^shape1
+        r <- stats::uniroot(
+          f = function(.x) rootF_cens_unif_weib_cpp(.x, shape1, cens),
+          lower = 1e-7,
+          upper = 13,
+          extendInt = "downX",
+          tol = .00015 #set a fixed tolerance (platform independent)
+        )$root
         stats::runif(
           n = n,
           min = delay1,
-          max = delay1 + scale1 / (cens * shape1B) * gamma(1 / shape1B)
+          max = delay1 + scale1 * r^(1 / shape1)
         )
       })
       censIdx <- which(censTime < evTime)
@@ -1188,14 +1199,16 @@ rweib_delayed <- function(
 
       # avoid having too many censorings by chance
       if (length(censIdx) > 0) {
-        maxNbrCens <- if (cens == 1) {
-          n
-        } else {
-          min(n - 1, round(n * cens, digits = 0))
-        }
-        maxNbrCens <- max(1, maxNbrCens)
-        maxNbrCens <- min(maxNbrCens, length(censIdx))
-        censIdx <- censIdx[seq_len(maxNbrCens)]
+        # cap number of censorings at expected number of censorings (rounding to integer)
+        #+but I don't like it because I want to trust the process
+        # maxNbrCens <- if (cens == 1) {
+        #   n
+        # } else {
+        #   min(n - 1, round(n * cens, digits = 0))
+        # }
+        # maxNbrCens <- max(1, maxNbrCens)
+        # maxNbrCens <- min(maxNbrCens, length(censIdx))
+        # censIdx <- censIdx[seq_len(maxNbrCens)]
 
         #res <- pmin.int(evTime, censTime)
         res[censIdx] <- censTime[censIdx]
@@ -1727,3 +1740,86 @@ getDist <- function(
     stop(glue("Unknown distribution {distribution}."), call. = FALSE)
   )
 }
+
+
+#' Get the standard deviation of the fitted delay model fit
+#'
+#' It's similar in notion to `variance` from package `distribution3`.
+#'
+#' For two group models you need to specify the group.
+#' @param object a fitted `incubate_fit` object
+#' @param group the group, "x" or "y"
+#' @param type what variance to calculate? Variance of the distribution or variance of the minimum
+#' @returns predicted variance of distribution or of minimum for the specified group
+getVariance <- function(
+  object,
+  group = "x",
+  type = c("distribution", "minimum")
+) {
+  stopifnot(`expect an incubate fit!` = inherits(object, "incubate_fit"))
+  stopifnot(`only single phase fits currently supported!` = !object$twoPhase)
+  stopifnot(`provide group x or y!` = group %in% c("x", "y"))
+  type <- match.arg(type)
+  stopifnot(is.character(type), length(type) == 1L)
+
+  twoGroup <- isTRUE(object$twoGroup)
+  coefGr <- coef.incubate_fit(object, group = group, transformed = FALSE)
+
+  varV <- switch(
+    type,
+    distribution = {
+      # variance of the underlying estimated distribution
+      switch(
+        object$distO$dist,
+        weibull = {
+          # calculate var from the parameters
+          shape1 <- coefGr[["shape1"]]
+
+          coefGr[["scale1"]]^2 *
+            (gamma(1 + 2 / shape1) - gamma(1 + 1 / shape1)^2)
+        },
+        exponential = {
+          # for exponential distribution, the scale parameter is the SD
+          1 / coefGr[["rate1"]]^2
+        },
+        normal = {
+          # for normal distribution, the scale parameter is the SD
+          coefGr[["sd"]]^2
+        },
+        stop(
+          "getVariance: this distribution is not supported currently!",
+          call. = FALSE
+        )
+      )
+    },
+    minimum = {
+      # estimate variance for min-observation
+      # F_{X_{(r)}}(x)=\sum _{j=r}^{n}{\binom {n}{j}}\left[F_{X}(x)\right]^{j}\left[1-F_{X}(x)\right]^{n-j}
+      # For a non-negative random variable, there's an elegant formula (Tonelli)
+      # E[X] = ∫₀^∞ [1 − F(x)] dx
+      # For the second moment:
+      # E[X^2] = 2 ∫₀^∞ x·[1 − F(x)] dx
+      groupIdx <- 1L + (twoGroup && group == 'y')
+      survF <- purrr::partial(
+        .f = getDist(
+          object$distO$dist,
+          type = "cdf",
+          twoPhase = object$twoPhase
+        ),
+        !!!c(coef(object), list(lower.tail = FALSE))
+      )
+      survFMin <- function(.x) survF(q = .x)^object$nobs[[groupIdx]]
+      2 *
+        stats::integrate(
+          f = function(.x) .x * survFMin(.x),
+          lower = 0,
+          upper = +Inf
+        )$value -
+        stats::integrate(f = survFMin, lower = 0, upper = +Inf)$value^2
+    },
+    stop("Unknown type of variance requested!", call. = FALSE)
+  )
+
+  stopifnot(is.finite(varV), varV >= 0)
+  varV
+} #fn getVariance

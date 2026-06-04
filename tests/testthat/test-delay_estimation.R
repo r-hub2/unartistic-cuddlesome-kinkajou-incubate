@@ -3273,3 +3273,127 @@ test_that("Fit normal", {
   expect_identical(fm_nrm_2grb$optimizer$convergence, 0L)
   expect_named(coef(fm_nrm_2grb), expected = c("sd", "mean.x", "mean.y"))
 })
+
+
+test_that("Variance of fitted model", {
+  set.seed(2026 - 05 - 04)
+
+  # generate some small data set with known parameters
+  obs_sim <- rexp_delayed(n = 29L, delay = 7, rate = .3)
+
+  fms <- purrr::map(
+    .x = purrr::set_names(c("weibull", "exponential", "normal")),
+    .f = function(.x) delay_model(x = obs_sim, distribution = .x)
+  )
+
+  expect_equal(length(fms), expected = 3L)
+  expect_equal(
+    purrr::map_dbl(fms, function(fm) getVariance(fm, type = "distribution")),
+    expected = c(
+      # variance as function of distribution parameters
+      weibull = coef(fms[["weibull"]])[["scale1"]]^2 *
+        (gamma(1 + 2 / coef(fms[["weibull"]])[["shape1"]]) -
+          gamma(1 + 1 / coef(fms[["weibull"]])[["shape1"]])^2),
+      exponential = (1 / coef(fms[["exponential"]])[["rate1"]])^2,
+      normal = coef(fms[["normal"]])[["sd"]]^2
+    ),
+    tolerance = .0001
+  )
+
+  # huge data sets: compare empirical variance with modelled variance
+  # the fitting method should not matter much
+  # weibull data
+  weibuPars <- c(delay1 = 9, shape1 = 1.5, scale1 = 3)
+  obs_sim_weibu_huge <- rlang::exec(
+    .fn = rweib_delayed,
+    !!!c(list(n = 2 * 3 * 1e5), weibuPars)
+  )
+
+  expect_equal(
+    getVariance(
+      delay_model(
+        x = obs_sim_weibu_huge,
+        distribution = "weibull",
+        method = "MPSE"
+      ),
+      type = "distribution"
+    ),
+    stats::var(obs_sim_weibu_huge),
+    tolerance = .01
+  )
+
+  # check the formula for CDF of minimum
+  purrr::walk2(
+    .x = weibuPars[["delay1"]] * c(.95, 1, 1.01, 1.02, 1.05, 1.1),
+    .y = c(10, 10, 12, 25, 25, 25),
+    .f = function(.q, .n) {
+      expect_equal(
+        1 -
+          rlang::exec(
+            .fn = pweib_delayed,
+            !!!c(list(q = .q, lower.tail = FALSE), weibuPars)
+          )^.n,
+        mean(
+          apply(
+            matrix(obs_sim_weibu_huge, ncol = .n),
+            MARGIN = 1,
+            min,
+            simplify = TRUE
+          ) <=
+            .q
+        ),
+        tolerance = .05
+      )
+    }
+  )
+
+  # check the variance of the minimum of n weibull distributed variables with the formula
+  purrr::walk(.x = c(10, 15, 20), .f = function(.n) {
+    local({
+      fm_weibu <- delay_model(
+        x = obs_sim_weibu_huge[seq_len(.n)],
+        distribution = "weibull",
+        method = "MPSE"
+      )
+
+      expect_equal(
+        object = {
+          getVariance(
+            fm_weibu,
+            type = "minimum"
+          )
+        },
+        expected = stats::var(
+          apply(
+            matrix(
+              rlang::exec(
+                .fn = rweib_delayed,
+                !!!c(list(n = fm_weibu$nobs[[1L]] * 3e5), coef(fm_weibu))
+              ),
+              ncol = fm_weibu$nobs[[1L]]
+            ),
+            MARGIN = 1,
+            min,
+            simplify = TRUE
+          )
+        ),
+        tolerance = .01
+      )
+    })
+  })
+
+  # exponential data
+  obs_sim_expon_huge <- rexp_delayed(n = 2 * 3 * 1e5, delay = 9, rate = .3)
+  expect_equal(
+    getVariance(
+      delay_model(
+        x = obs_sim_expon_huge,
+        distribution = "exponential",
+        method = "MPSE"
+      ),
+      type = "distribution"
+    ),
+    stats::var(obs_sim_expon_huge),
+    tolerance = .01
+  )
+})

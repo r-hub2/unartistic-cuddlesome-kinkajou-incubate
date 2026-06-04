@@ -810,13 +810,12 @@ test_GOF <- function(
 #' # difference in delay parameter is significant at 5% level
 #' test_diff(x = grA, y = grB,
 #'   distribution = "weibull", param = "delay1",
-#'   type = "bootstrap", method = "MPSE", R = 150)
+#'   type = "bootstrap", method = "MPSE", R = 50)
 #'
-#' # difference in shape parameter is not significant at 5% level
+#' # but the non-parametric logrank test is not significant
+#' # no need to specify parameters
 #' test_diff(x = grA, y = grB,
-#'  distribution = "weibull", param = "shape1",
-#'  type = "bootstrap", method = "MPSE", R = 150)
-#'
+#'   type = "logrank")
 #' @export
 test_diff <- function(
   x,
@@ -951,7 +950,7 @@ test_diff <- function(
     param <- param[!is.na(param) & nzchar(param)]
     param <- unique(param)
     # eventually split multiple parameter names separated by "+"
-    param <- strsplit(param, split = "+", fixed = TRUE) |> unlist()
+    param <- unlist(strsplit(param, split = "+", fixed = TRUE))
     # trim leading and trailing whitespace from parameter names
     param <- trimws(param)
 
@@ -1278,33 +1277,34 @@ test_diff <- function(
   } #fi logrank
 
   # compact cleanses NULL entries
-  list(
-    # two initial model fits
-    #fit0 = fit0, fit1 = fit1, # debug only?!
+  structure(
+    purrr::compact(
+      list(
+        # two initial model fits
+        #fit0 = fit0, fit1 = fit1, # debug only?!
 
-    distribution = distribution,
-    t_obs = ts_obs[["val"]],
-    testDist = t0_dist,
-    R = if (testMask[["bootstrap"]]) length(t0_dist),
-    chisq_df_hat = chisq_df_hat,
-    # param will be dropped if NULL (due to compact)
-    param = if (!isNonParametric) param,
-    # save only non-NULL p-values
-    P = purrr::compact(list(
-      bootstrap = P_boot,
-      LRT = P_LRT,
-      moran = as.vector(GOF_mo0$p.value),
-      moran1 = as.vector(GOF_mo1$p.value),
-      pearson = as.vector(GOF_pears0$p.value),
-      pearson1 = as.vector(GOF_pears1$p.value),
-      logrank = P_logrank,
-      logrank_pp = P_logrank_pp
-    ))
-  ) |>
-    purrr::compact() |>
-    structure(
-      class = "incubate_test"
-    )
+        distribution = distribution,
+        t_obs = ts_obs[["val"]],
+        testDist = t0_dist,
+        R = if (testMask[["bootstrap"]]) length(t0_dist),
+        chisq_df_hat = chisq_df_hat,
+        # param will be dropped if NULL (due to compact)
+        param = if (!isNonParametric) param,
+        # save only non-NULL p-values
+        P = purrr::compact(list(
+          bootstrap = P_boot,
+          LRT = P_LRT,
+          moran = as.vector(GOF_mo0$p.value),
+          moran1 = as.vector(GOF_mo1$p.value),
+          pearson = as.vector(GOF_pears0$p.value),
+          pearson1 = as.vector(GOF_pears1$p.value),
+          logrank = P_logrank,
+          logrank_pp = P_logrank_pp
+        ))
+      )
+    ),
+    class = "incubate_test"
+  )
 }
 
 #' @export
@@ -1415,15 +1415,18 @@ plot.incubate_test <- function(x, y, title, subtitle, ...) {
 
 #' Power simulation function for a two-group comparison
 #'
+#' Simulate power for a test of difference between two groups for a given distribution with delay.
+#' The effect is specified in terms of the model parameters for both groups.
 #' There are two modes of operation:
-#' 1. `power=NULL`: simulate power based on given sample size `n`
+#' 1. `power=NULL`: simulate power based on given sample size `n` (post-hoc power estimation)
 #' 2. `n=NULL`: search iteratively for a suitable sample size `n` for a given power
 #'
-#' In both cases, the distribution, the parameters that are tested for, the type
-#' of test and the effect size (`eff=`) need to be specified. Specify the effect as a list with two elements,
-#' each element holds the parameter vector describing the distribution of the outcome per group.
+#' The power is estimated by simulating data according to the specified model and testing for differences in the simulated data.
+#' The proportion of simulated datasets where the test rejects the null hypothesis at the given significance level is the estimated power.
+#' The test can be a parametric bootstrap test or a non-parametric logrank test. For logrank tests, the `param=` argument should not be specified.
+#' Specify the effect size (`eff=`) as a list with two elements, each element holds the parameter vector of the distribution of the response variable of one group.
 #' The fitting method (`method=`) and the kind of significance test (`test=`) are handed down to [test_diff()].
-#' The more power simulation rounds (parameter `nPowerSim=`) the more densely the space of data
+#' The more power simulation rounds (parameter `nPowerSim=`) the more densely the space of possible data
 #' according to the specified model is sampled.
 #'
 #' Note that estimating sample size `n` is computationally intensive.
@@ -1446,7 +1449,7 @@ plot.incubate_test <- function(x, y, title, subtitle, ...) {
 #' @param param character. Parameter name(s) which are to be tested for
 #'   difference and for which to simulate the power. Default value is
 #'   `'delay1'`. You can specify multiple parameters, by giving a vector or
-#'   by concatenating them with a `+` in a single string.
+#'   by concatenating them with a `+` in a single string. For logrank tests, this argument is ignored.
 #' @param test character. Which test to use for this power estimation? Defaults
 #'   to `"bootstrap"`. Non-parametric logrank test is also possible (either
 #'   `"logrank"` or `"logrank_pp"`). See also [test_diff()].
@@ -1472,10 +1475,18 @@ plot.incubate_test <- function(x, y, title, subtitle, ...) {
 #' @returns List of results of power simulation. Or `NULL` in case of errors.
 #' @seealso [test_diff()]
 #' @examples
-#' # simulate power for a given sample size ---------------------------
-#' # test for difference in delay in an exponential model,
+#' # Simulate power for a given sample size:
+#' # test for any difference in a delay-exponential model using logrank test
 #' # the assumed effect is given in terms of model parameters for both groups
-#' # the power is estimated based on nPowersim = 30 simulated datasets
+#' power_diff(
+#'   eff = list(ctrl = c(delay1 = 5, rate1 = .09),
+#'              trtm = c(delay1 = 7, rate1 = .12)),
+#'   test = "logrank",
+#'   n = 16, power = NULL, nPowerSim = 300)
+#'
+#' \dontrun{
+#' # test for difference in delay in a delay-exponential model via a bootstrap test:
+#' # the power is estimated based on nPowersim = 520 simulated datasets
 #' # for real applications, use a higher nPowerSim (e.g. 1600) for more
 #' # precise power estimation and a higher R (e.g. 400) for more precise
 #' # P-value estimation in each simulation round
@@ -1486,24 +1497,23 @@ plot.incubate_test <- function(x, y, title, subtitle, ...) {
 #'   param = "delay1",
 #'   test = "bootstrap", method = "MPSE",
 #'   n = 16, power = NULL,
-#'   nPowerSim = 30, R = 100)
+#'   nPowerSim = 520, R = 160)
 #'
-#' # simulate required sample size for a given power -----------------------
-#' # provide a range for the sample size search, e.g. nRange = c(12, 25)
-#' # this takes more time than the previous example, as the function
-#' # iteratively searches for a sample size that yields the requested power
-#' \dontrun{
-#' set.seed(123) # for reproducibility
+#' # test for difference in rate in a delay-exponential model via a bootstrap test:
+#' # required sample size is estimated for a given power.
+#' # provide a suitable range for the sample size search via nRange=.
+#' # The search for n takes more time than the previous example, as the function
+#' # iteratively evaluates different sample sizes in order to find the right one.
+#' set.seed(1234) # for reproducibility
 #' power_diff(
-#'   eff = list(grA = c(delay1 = 5.2, rate1 = .1),
-#'              grB = c(delay1 = 7, rate1 = .15)),
-#'   param = "delay1",
+#'   eff = list(grA = c(delay1 = 5, rate1 = .07),
+#'              grB = c(delay1 = 7, rate1 = .18)),
+#'   param = "rate1",
 #'   test = "bootstrap", method = "MPSE",
 #'   n = NULL, power = 0.8,
-#'   nPowerSim = 120, R = 100,
-#'   nRange = c(12, 25))
+#'   nPowerSim = 480, R = 150,
+#'   nRange = c(18, 48))
 #' }
-
 #' @export
 power_diff <- function(
   distribution = c("exponential", "weibull"),
@@ -1557,7 +1567,7 @@ power_diff <- function(
     param <- param[!is.na(param) & nzchar(param)]
     param <- unique(param)
     # eventually split multiple parameter names separated by "+"
-    param <- strsplit(param, split = "+", fixed = TRUE) |> unlist()
+    param <- unlist(strsplit(param, split = "+", fixed = TRUE))
     # trim leading and trailing whitespace from parameter names
     param <- trimws(param)
 
@@ -1663,17 +1673,21 @@ power_diff <- function(
         P_val <- NA_real_
         try(
           expr = {
-            P_val <- test_diff(
-              x = datx,
-              y = daty,
-              method = method,
-              distribution = distO,
-              twoPhase = twoPhase,
-              param = param,
-              type = test_cat,
-              R = R
-            ) |>
-              purrr::pluck("P", test, .default = NA_real_)
+            P_val <- purrr::pluck(
+              test_diff(
+                x = datx,
+                y = daty,
+                method = method,
+                distribution = distO,
+                twoPhase = twoPhase,
+                param = param,
+                type = test_cat,
+                R = R
+              ),
+              "P",
+              test,
+              .default = NA_real_
+            )
           },
           silent = TRUE
         )

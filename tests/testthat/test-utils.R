@@ -1,5 +1,7 @@
 # mkuhn, 2021-10-11
 # test utility/helper functions of this package
+
+testthat::skip_if_not_installed("numDeriv")
 library("numDeriv")
 
 test_that("MLEw weight objects", {
@@ -467,10 +469,106 @@ test_that("Ties in data", {
 })
 
 
-test_that("integration functions", {
+test_that("S3-integration functions", {
   expect_type(logLik.incubate_fit, type = "closure")
   expect_named(
     formals(logLik.incubate_fit),
     expected = c("object", "method", "...")
   )
+})
+
+
+test_that("Lambert W function", {
+  # we consider the package-internal function lambertW0
+  expect_true(exists("lambertW0_cpp"))
+  expect_type(lambertW0_cpp, type = "closure")
+  expect_named(formals(lambertW0_cpp), expected = "x")
+
+  # test some known values
+  expect_equal(lambertW0_cpp(0), expected = 0)
+  expect_equal(lambertW0_cpp(-exp(-1)), expected = -1)
+  expect_equal(lambertW0_cpp(exp(1)), expected = 1)
+
+  # x-arguments to evaluate
+  x_vals <- c(
+    seq.int(from = -exp(-1) + .0001, to = exp(1), length.out = 47),
+    5,
+    7,
+    exp(2),
+    9.2,
+    10,
+    11.5,
+    13,
+    50
+  )
+  ## expected results from lamW (v2.2.7 from CRAN)
+  ##lamW::lambertW0(x = x_vals) |> dput()
+  W0_vals_expected <- c(
+    -0.976862865574426,
+    -0.491617685777098,
+    -0.322509223411854,
+    -0.204246949165174,
+    -0.111110729590312,
+    -0.0334375846930903,
+    0.0336020103451618,
+    0.0928120892163823,
+    0.145982070413602,
+    0.194331346342889,
+    0.238732108154064,
+    0.279831921925831,
+    0.318126057507369,
+    0.354002577818024,
+    0.387771719819175,
+    0.419685751482768,
+    0.449952809625704,
+    0.478746798236195,
+    0.506214630106121,
+    0.532481629876748,
+    0.557655635547172,
+    0.58183016004334,
+    0.605086861830733,
+    0.627497499468096,
+    0.649125495177315,
+    0.670027198330716,
+    0.690252915894688,
+    0.70984775993406,
+    0.728852350084642,
+    0.7473033999967,
+    0.765234210169733,
+    0.782675084676732,
+    0.799653685556196,
+    0.81619533581081,
+    0.832323279764542,
+    0.848058907830504,
+    0.863421951410968,
+    0.878430652600534,
+    0.893101912528694,
+    0.90745142151014,
+    0.921493773633452,
+    0.935242567983309,
+    0.948710498336646,
+    0.96190943288277,
+    0.97485048527842,
+    0.987544078151124,
+    1,
+    1.3267246652422,
+    1.52434520498414,
+    1.55714559899761,
+    1.69281227191955,
+    1.7455280027407,
+    1.83519583660931,
+    1.91515223953636,
+    2.86089017798221
+  )
+  expect_identical(
+    length(x_vals),
+    expected = length(W0_vals_expected)
+  )
+  for (i in seq_along(x_vals)) {
+    expect_equal(
+      lambertW0_cpp(x_vals[i]),
+      expected = W0_vals_expected[i],
+      tolerance = 1e-7
+    )
+  }
 })
